@@ -2,7 +2,7 @@
 
 Endpoint principal :
 
-    GET /calendar.ics?group=...&start=YYYY-MM-DD&end=YYYY-MM-DD
+    GET /calendar.ics?resource_type=group&resource_id=...&start=YYYY-MM-DD&end=YYYY-MM-DD
 
 Tous les paramètres sont surchargeables depuis l'URL ; ceux qui sont omis
 retombent sur les valeurs par défaut définies via variables d'environnement
@@ -28,8 +28,8 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI(
     title="Celcat to ICS",
-    description="Convertit un calendrier de groupe Celcat en flux ICS standard.",
-    version="1.0.0",
+    description="Convertit un calendrier Celcat (groupe, matière ou salle) en flux ICS standard.",
+    version="1.1.0",
 )
 
 app.add_middleware(
@@ -58,7 +58,7 @@ def health() -> dict:
 @app.get(
     "/calendar.ics",
     tags=["calendar"],
-    summary="Génère le calendrier ICS d'un groupe Celcat",
+    summary="Génère le calendrier ICS d'une ressource Celcat (groupe, matière ou salle)",
     responses={
         200: {"content": {"text/calendar": {}}},
         400: {"description": "Paramètres invalides"},
@@ -67,9 +67,22 @@ def health() -> dict:
     },
 )
 def get_calendar(
+    resource_type: Literal["group", "module", "room"] = Query(
+        default="group",
+        description="Type de ressource Celcat à exporter : groupe, matière (module) ou salle.",
+    ),
+    resource_id: Optional[str] = Query(
+        default=None,
+        description=(
+            "Identifiant exact de la ressource (federation id) Celcat. "
+            "Ex: 'M1 CMI OSIA parcours OPTIM' (groupe), '4TBI702U' (matière), "
+            "'A22/ Salle 201' (salle)."
+        ),
+    ),
     group: Optional[str] = Query(
         default=None,
-        description="Nom exact du groupe (federation id) Celcat, ex: 'M1 CMI OSIA parcours OPTIM'.",
+        description="Alias historique de 'resource_id' (rétrocompatibilité des anciens liens groupe).",
+        deprecated=True,
     ),
     start: Optional[dt.date] = Query(
         default=None,
@@ -92,7 +105,7 @@ def get_calendar(
     ),
     calendar_name: Optional[str] = Query(
         default=None,
-        description="Nom affiché du calendrier (X-WR-CALNAME). Par défaut : le nom du groupe.",
+        description="Nom affiché du calendrier (X-WR-CALNAME). Par défaut : l'identifiant de la ressource.",
     ),
     disposition: Literal["inline", "attachment"] = Query(
         default="inline",
@@ -106,6 +119,8 @@ def get_calendar(
 ) -> Response:
     try:
         req = resolve_request(
+            resource_type=resource_type,
+            resource_id=resource_id,
             group=group,
             start=start,
             end=end,
@@ -122,7 +137,8 @@ def get_calendar(
     try:
         ics_bytes, log_lines = generate_calendar_ics(
             base_url=req.base_url,
-            group=req.group,
+            resource_type=req.resource_type,
+            resource_id=req.resource_id,
             start=req.start,
             end=req.end,
             cookie=req.cookie,
@@ -138,7 +154,7 @@ def get_calendar(
     for line in log_lines:
         logger.warning(line)
 
-    filename = f"{req.group}.ics".replace("/", "-")
+    filename = f"{req.resource_id}.ics".replace("/", "-")
     return Response(
         content=ics_bytes,
         media_type="text/calendar; charset=utf-8",

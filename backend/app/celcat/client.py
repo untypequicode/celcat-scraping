@@ -25,15 +25,34 @@ DEFAULT_HEADERS = {
     "X-Requested-With": "XMLHttpRequest",
 }
 
+# Correspondance entre le type de ressource Celcat (paramètre "et" de l'URL
+# du calendrier, ex: ?et=group&fid0=...) et le code numérique "resType"
+# attendu par l'endpoint interne GetCalendarData.
+#
+# Valeur confirmée via les DevTools du navigateur : group = 103.
+# Les valeurs room/module sont déduites par convention (103/104/105) et
+# n'ont pas encore été vérifiées sur l'instance u-bordeaux.fr : si une
+# recherche par matière ou par salle renvoie une liste vide alors que le
+# lien Celcat correspondant affiche bien des cours, corrige les valeurs
+# ci-dessous en les relevant depuis l'onglet Réseau (requête
+# GetCalendarData, champ "resType") sur le lien concerné.
+RESOURCE_TYPE_CODES = {
+    "group": "103",
+    "room": "104",
+    "module": "105",
+}
 
-def _get_session(base_url: str, cookie_header: str, group: str) -> requests.Session:
+
+def _get_session(
+    base_url: str, cookie_header: str, resource_type: str, resource_id: str
+) -> requests.Session:
     """Construit une session `requests` réutilisant un cookie déjà authentifié."""
     session = requests.Session()
     session.headers.update(DEFAULT_HEADERS)
     session.headers["Cookie"] = cookie_header.strip()
     session.headers["Origin"] = base_url.split("/calendar")[0]
     session.headers["Referer"] = (
-        f"{base_url}/cal?vt=agendaWeek&et=group&fid0={urllib.parse.quote(group)}"
+        f"{base_url}/cal?vt=agendaWeek&et={resource_type}&fid0={urllib.parse.quote(resource_id)}"
     )
     return session
 
@@ -50,7 +69,8 @@ def _daterange_weeks(start: dt.date, end: dt.date) -> Iterator[Tuple[dt.date, dt
 def _fetch_week(
     session: requests.Session,
     base_url: str,
-    group: str,
+    resource_type: str,
+    resource_id: str,
     start: dt.date,
     end: dt.date,
     timeout: float,
@@ -60,9 +80,9 @@ def _fetch_week(
     payload = {
         "start": start.isoformat(),
         "end": (end + dt.timedelta(days=1)).isoformat(),  # borne exclusive côté Celcat
-        "resType": "103",  # 103 = ressource de type "groupe"
+        "resType": RESOURCE_TYPE_CODES[resource_type],
         "calView": "agendaWeek",
-        "federationIds[]": group,
+        "federationIds[]": resource_id,
         "colourScheme": "3",
     }
 
@@ -98,7 +118,8 @@ def _fetch_week(
 
 def fetch_all_events(
     base_url: str,
-    group: str,
+    resource_type: str,
+    resource_id: str,
     start: dt.date,
     end: dt.date,
     cookie_header: str,
@@ -106,6 +127,9 @@ def fetch_all_events(
     timeout: float = 20.0,
 ) -> Tuple[List[Dict[str, Any]], List[str]]:
     """Boucle sur toutes les semaines entre start et end et agrège les events.
+
+    `resource_type` doit être l'une des clés de `RESOURCE_TYPE_CODES`
+    ("group", "room" ou "module").
 
     Retourne (events, log_lines) — log_lines contient les erreurs par semaine
     (une semaine en erreur n'interrompt pas la récupération des autres,
@@ -117,7 +141,13 @@ def fetch_all_events(
             "configuration serveur)."
         )
 
-    session = _get_session(base_url, cookie_header, group)
+    if resource_type not in RESOURCE_TYPE_CODES:
+        raise CelcatError(
+            f"Type de ressource inconnu: {resource_type!r}. "
+            f"Valeurs acceptées: {', '.join(RESOURCE_TYPE_CODES)}."
+        )
+
+    session = _get_session(base_url, cookie_header, resource_type, resource_id)
 
     all_events: Dict[str, Dict[str, Any]] = {}
     log_lines: List[str] = []
@@ -129,7 +159,13 @@ def fetch_all_events(
         )
         try:
             events = _fetch_week(
-                session, base_url, group, week_start, week_end, timeout
+                session,
+                base_url,
+                resource_type,
+                resource_id,
+                week_start,
+                week_end,
+                timeout,
             )
         except CelcatAuthError:
             # Un cookie invalide reste invalide pour toutes les autres

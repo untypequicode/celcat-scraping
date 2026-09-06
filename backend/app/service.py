@@ -6,7 +6,7 @@ import logging
 from dataclasses import dataclass
 from typing import List, Optional, Tuple
 
-from .celcat.client import fetch_all_events
+from .celcat.client import RESOURCE_TYPE_CODES, fetch_all_events
 from .celcat.converter import build_ics
 from .core.cache import ics_cache
 from .core.config import Settings
@@ -14,11 +14,14 @@ from .core.exceptions import CelcatAuthError
 
 logger = logging.getLogger(__name__)
 
+DEFAULT_RESOURCE_TYPE = "group"
+
 
 @dataclass(frozen=True)
 class ResolvedRequest:
     base_url: str
-    group: str
+    resource_type: str
+    resource_id: str
     cookie: str
     start: dt.date
     end: dt.date
@@ -27,6 +30,8 @@ class ResolvedRequest:
 
 def resolve_request(
     *,
+    resource_type: Optional[str],
+    resource_id: Optional[str],
     group: Optional[str],
     start: Optional[dt.date],
     end: Optional[dt.date],
@@ -37,13 +42,24 @@ def resolve_request(
 ) -> ResolvedRequest:
     """Applique les valeurs par défaut et valide les paramètres d'une requête.
 
+    `group` est conservé comme alias historique de `resource_id` (pour ne pas
+    casser les liens déjà générés avant l'ajout du support matière/salle) :
+    utilisé uniquement si `resource_id` est absent.
+
     Lève `ValueError` pour un paramètre invalide/manquant, et
     `CelcatAuthError` si aucun cookie de session n'est disponible.
     """
-    resolved_group = group or settings.celcat_default_group
-    if not resolved_group:
+    resolved_resource_type = (resource_type or DEFAULT_RESOURCE_TYPE).strip().lower()
+    if resolved_resource_type not in RESOURCE_TYPE_CODES:
         raise ValueError(
-            "Le paramètre 'group' est requis (aucun CELCAT_DEFAULT_GROUP configuré)."
+            f"Le paramètre 'resource_type' doit être l'un de : {', '.join(RESOURCE_TYPE_CODES)}."
+        )
+
+    default_id = settings.celcat_default_group if resolved_resource_type == DEFAULT_RESOURCE_TYPE else None
+    resolved_resource_id = (resource_id or group or default_id or "").strip()
+    if not resolved_resource_id:
+        raise ValueError(
+            "Le paramètre 'resource_id' est requis (aucun CELCAT_DEFAULT_GROUP configuré)."
         )
 
     resolved_cookie = cookie or settings.celcat_cookie
@@ -62,25 +78,27 @@ def resolve_request(
 
     return ResolvedRequest(
         base_url=(base_url or settings.celcat_base_url).rstrip("/"),
-        group=resolved_group,
+        resource_type=resolved_resource_type,
+        resource_id=resolved_resource_id,
         cookie=resolved_cookie,
         start=resolved_start,
         end=resolved_end,
-        calendar_name=calendar_name or resolved_group,
+        calendar_name=calendar_name or resolved_resource_id,
     )
 
 
 def _cache_key(
-    base_url: str, group: str, start: dt.date, end: dt.date, cookie: str
+    base_url: str, resource_type: str, resource_id: str, start: dt.date, end: dt.date, cookie: str
 ) -> str:
     cookie_hash = hashlib.sha256(cookie.encode("utf-8")).hexdigest()[:16]
-    return f"{base_url}|{group}|{start.isoformat()}|{end.isoformat()}|{cookie_hash}"
+    return f"{base_url}|{resource_type}|{resource_id}|{start.isoformat()}|{end.isoformat()}|{cookie_hash}"
 
 
 def generate_calendar_ics(
     *,
     base_url: str,
-    group: str,
+    resource_type: str,
+    resource_id: str,
     start: dt.date,
     end: dt.date,
     cookie: str,
@@ -89,17 +107,21 @@ def generate_calendar_ics(
     use_cache: bool = True,
 ) -> Tuple[bytes, List[str]]:
     """Récupère les événements Celcat et renvoie (contenu_ics, lignes_de_log)."""
-    cache_key = _cache_key(base_url, group, start, end, cookie)
+    cache_key = _cache_key(base_url, resource_type, resource_id, start, end, cookie)
 
     if use_cache and settings.cache_ttl_seconds > 0:
         cached = ics_cache.get(cache_key)
         if cached is not None:
-            logger.info("Cache hit pour group=%s start=%s end=%s", group, start, end)
+            logger.info(
+                "Cache hit pour resource_type=%s resource_id=%s start=%s end=%s",
+                resource_type, resource_id, start, end,
+            )
             return cached
 
     events, fetch_log = fetch_all_events(
         base_url=base_url,
-        group=group,
+        resource_type=resource_type,
+        resource_id=resource_id,
         start=start,
         end=end,
         cookie_header=cookie,
@@ -107,7 +129,8 @@ def generate_calendar_ics(
         timeout=settings.request_timeout_seconds,
     )
     logger.info(
-        "%d événement(s) unique(s) récupéré(s) pour group=%s", len(events), group
+        "%d événement(s) unique(s) récupéré(s) pour resource_type=%s resource_id=%s",
+        len(events), resource_type, resource_id,
     )
 
     cal, build_log = build_ics(events, calendar_name=calendar_name)

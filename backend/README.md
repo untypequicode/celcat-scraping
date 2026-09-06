@@ -1,8 +1,9 @@
 # celcat-to-ics — backend
 
-API FastAPI qui transforme le calendrier d'un groupe Celcat en flux ICS
-standard, consommable par n'importe quel client de calendrier (Google
-Calendar, Outlook, Apple Calendar, Thunderbird, abonnement `webcal://`, etc.).
+API FastAPI qui transforme un calendrier Celcat (groupe, matière ou salle) en
+flux ICS standard, consommable par n'importe quel client de calendrier
+(Google Calendar, Outlook, Apple Calendar, Thunderbird, abonnement
+`webcal://`, etc.).
 
 ## Authentification (important)
 
@@ -54,30 +55,56 @@ docker run --rm -p 8000:8000 --env-file .env celcat-to-ics
 GET /calendar.ics
 ```
 
-| Paramètre       | Requis | Défaut                             | Description                                                    |
-| --------------- | ------ | ---------------------------------- | -------------------------------------------------------------- |
-| `group`         | Non*   | `CELCAT_DEFAULT_GROUP`             | Nom exact du groupe (federation id) Celcat.                    |
-| `start`         | Non    | Aujourd'hui                        | Date de début (`YYYY-MM-DD`).                                  |
-| `end`           | Non    | `start + DEFAULT_RANGE_DAYS` jours | Date de fin (`YYYY-MM-DD`).                                    |
-| `base_url`      | Non    | `CELCAT_BASE_URL`                  | URL de base de l'instance Celcat (sans slash final).           |
-| `cookie`        | Non*   | `CELCAT_COOKIE`                    | Cookie de session Celcat.                                      |
-| `calendar_name` | Non    | valeur de `group`                  | Nom affiché du calendrier (`X-WR-CALNAME`).                    |
-| `disposition`   | Non    | `inline`                           | `inline` ou `attachment` (en-tête `Content-Disposition`).      |
-| `no_cache`      | Non    | `false`                            | Si `true`, ignore le cache et force une nouvelle récupération. |
+| Paramètre       | Requis | Défaut                             | Description                                                                          |
+| --------------- | ------ | ---------------------------------- | ------------------------------------------------------------------------------------ |
+| `resource_type` | Non    | `group`                            | Type de ressource : `group`, `module` (matière) ou `room` (salle).                   |
+| `resource_id`   | Non*   | `CELCAT_DEFAULT_GROUP`             | Identifiant exact de la ressource (federation id) Celcat.                            |
+| `group`         | Non    | —                                  | Alias historique de `resource_id` (rétrocompatibilité), utilisé seulement si absent. |
+| `start`         | Non    | Aujourd'hui                        | Date de début (`YYYY-MM-DD`).                                                        |
+| `end`           | Non    | `start + DEFAULT_RANGE_DAYS` jours | Date de fin (`YYYY-MM-DD`).                                                          |
+| `base_url`      | Non    | `CELCAT_BASE_URL`                  | URL de base de l'instance Celcat (sans slash final).                                 |
+| `cookie`        | Non*   | `CELCAT_COOKIE`                    | Cookie de session Celcat.                                                            |
+| `calendar_name` | Non    | valeur de `resource_id`            | Nom affiché du calendrier (`X-WR-CALNAME`).                                          |
+| `disposition`   | Non    | `inline`                           | `inline` ou `attachment` (en-tête `Content-Disposition`).                            |
+| `no_cache`      | Non    | `false`                            | Si `true`, ignore le cache et force une nouvelle récupération.                       |
 
-\* `group` et `cookie` sont requis au global : soit fournis dans l'URL, soit
-configurés côté serveur via `CELCAT_DEFAULT_GROUP` / `CELCAT_COOKIE`.
+\* `resource_id` et `cookie` sont requis au global : soit fournis dans l'URL,
+soit configurés côté serveur via `CELCAT_DEFAULT_GROUP` / `CELCAT_COOKIE`
+(`CELCAT_DEFAULT_GROUP` ne s'applique que si `resource_type=group`).
+
+### Trouver l'identifiant d'une ressource
+
+Dans l'URL du calendrier Celcat affiché par le navigateur, ex :
+
+```
+https://celcat.u-bordeaux.fr/calendar/cal?vt=agendaWeek&dt=2026-09-06&et=module&fid0=4TBI702U
+```
+
+- `et` → le `resource_type` (`group`, `module` ou `room`)
+- `fid0` → le `resource_id` (à décoder l'URL-encodage, ex: `A22%2F%20Salle%20201` → `A22/ Salle 201`)
 
 ### Exemples
 
-Avec cookie et groupe fournis directement dans l'URL :
+Groupe :
 
 ```
-GET /calendar.ics?group=M1%20CMI%20OSIA%20parcours%20OPTIM&start=2026-09-01&end=2026-12-31&cookie=ASP.NET_SessionId=...;
+GET /calendar.ics?resource_type=group&resource_id=M1%20CMI%20OSIA%20parcours%20OPTIM&start=2026-09-01&end=2026-12-31&cookie=...
+```
+
+Matière :
+
+```
+GET /calendar.ics?resource_type=module&resource_id=4TBI702U&start=2026-09-01&end=2026-12-31&cookie=...
+```
+
+Salle :
+
+```
+GET /calendar.ics?resource_type=room&resource_id=A22%2F%20Salle%20201&start=2026-09-01&end=2026-12-31&cookie=...
 ```
 
 Avec un serveur déjà configuré (`CELCAT_DEFAULT_GROUP` et `CELCAT_COOKIE`
-définis en environnement), l'URL minimale devient :
+définis en environnement), l'URL minimale pour le groupe par défaut devient :
 
 ```
 GET /calendar.ics
@@ -86,6 +113,21 @@ GET /calendar.ics
 Cette URL peut être ajoutée directement comme abonnement de calendrier
 (`webcal://` ou "Ajouter un calendrier depuis une URL") dans Google Calendar,
 Outlook, Apple Calendar, etc.
+
+### ⚠️ Si `module` ou `room` renvoie un calendrier vide
+
+La correspondance entre `resource_type` et le code interne Celcat `resType`
+est définie dans `app/celcat/client.py` (`RESOURCE_TYPE_CODES`). La valeur
+`group = 103` a été confirmée via les DevTools du navigateur ; les valeurs
+`room = 104` et `module = 105` sont des valeurs par convention non encore
+vérifiées sur l'instance u-bordeaux.fr. Si une recherche par matière ou par
+salle renvoie un calendrier vide alors que le lien Celcat correspondant
+affiche bien des cours :
+
+1. Ouvre le lien Celcat concerné (ex: un lien `et=module`) dans le navigateur, connecté.
+2. Outils développeur (F12) → onglet Réseau → requête `GetCalendarData`.
+3. Regarde la valeur du champ `resType` envoyé dans le corps de la requête.
+4. Corrige la valeur correspondante dans `RESOURCE_TYPE_CODES`.
 
 ## Autres endpoints
 
