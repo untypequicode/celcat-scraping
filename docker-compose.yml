@@ -4,8 +4,6 @@ services:
     restart: always
     env_file:
       - ./backend/.env
-    ports:
-      - "8000:8000"
     labels:
       - traefik.enable=true
       - traefik.http.routers.backend-celcat.rule=Host(`${BACKEND_DOMAIN}`)
@@ -17,8 +15,6 @@ services:
     environment:
       - NUXT_PUBLIC_API_BASE_URL=https://${BACKEND_DOMAIN}
       - NUXT_PUBLIC_SITE_URL=https://${FRONTEND_DOMAIN}
-    ports:
-      - "3000:3000"
     labels:
       - traefik.enable=true
       - traefik.http.routers.frontend-celcat.rule=Host(`${FRONTEND_DOMAIN}`)
