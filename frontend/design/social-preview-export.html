@@ -1,0 +1,292 @@
+<!doctype html>
+<html lang="fr">
+    <head>
+        <meta charset="UTF-8" />
+        <title>Export images — Celcat → ICS</title>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link
+            rel="stylesheet"
+            href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,600;0,700;0,900;1,600&family=Inter:wght@400;500;600&family=Space+Mono:wght@400;700&display=swap"
+        />
+        <style>
+            * {
+                box-sizing: border-box;
+            }
+            body {
+                margin: 0;
+                padding: 48px;
+                background: #e7e4dc;
+                font-family: "Inter", sans-serif;
+                color: #3b1c13;
+            }
+            .instructions {
+                max-width: 720px;
+                margin: 0 auto 48px;
+                background: #fff;
+                padding: 24px 28px;
+                font-size: 14px;
+                line-height: 1.6;
+            }
+            .instructions h1 {
+                font-family: "Fraunces", serif;
+                font-size: 22px;
+                margin: 0 0 12px;
+            }
+            .instructions code {
+                background: #3b1c13;
+                color: #f6f4ef;
+                padding: 1px 6px;
+                font-family: "Space Mono", monospace;
+                font-size: 12px;
+            }
+            .instructions ol {
+                padding-left: 20px;
+            }
+            .section-label {
+                max-width: 1200px;
+                margin: 48px auto 12px;
+                font-family: "Space Mono", monospace;
+                font-size: 12px;
+                text-transform: uppercase;
+                letter-spacing: 0.15em;
+                color: #6e655f;
+            }
+            .frame-wrapper {
+                margin: 0 auto 24px;
+                width: fit-content;
+                outline: 2px dashed #009de0;
+                outline-offset: 4px;
+            }
+
+            /* --- OG image (1200x630) --- */
+            #og-frame {
+                position: relative;
+                width: 1200px;
+                height: 630px;
+                background: #f6f4ef;
+                overflow: hidden;
+            }
+            #og-frame .shape-blue {
+                position: absolute;
+                width: 560px;
+                height: 140px;
+                background: #009de0;
+                right: -160px;
+                top: -30px;
+                transform: rotate(-10deg);
+            }
+            #og-frame .shape-brown {
+                position: absolute;
+                width: 380px;
+                height: 380px;
+                background: #3b1c13;
+                right: -130px;
+                bottom: -180px;
+                transform: rotate(12deg);
+            }
+            #og-frame .og-inner {
+                position: relative;
+                z-index: 2;
+                height: 100%;
+                padding: 72px 80px;
+                display: flex;
+                flex-direction: column;
+                justify-content: space-between;
+            }
+            #og-frame .kicker {
+                font-family: "Space Mono", monospace;
+                font-size: 20px;
+                text-transform: uppercase;
+                letter-spacing: 0.35em;
+                color: #6e655f;
+                margin: 0;
+            }
+            #og-frame h1 {
+                font-family: "Fraunces", serif;
+                font-weight: 600;
+                font-size: 92px;
+                line-height: 0.98;
+                margin: 0;
+                color: #3b1c13;
+            }
+            #og-frame h1 em {
+                font-style: italic;
+                color: #009de0;
+            }
+            #og-frame .og-sub {
+                font-size: 24px;
+                line-height: 1.45;
+                color: #6e655f;
+                max-width: 620px;
+                margin: 0;
+            }
+            #og-frame .og-footnote {
+                font-family: "Space Mono", monospace;
+                font-size: 15px;
+                text-transform: uppercase;
+                letter-spacing: 0.15em;
+                color: #3b1c1399;
+                margin: 0;
+            }
+
+            /* --- Icônes carrées (apple-touch-icon / icon-512) --- */
+            .icon-frame {
+                position: relative;
+                background: #3b1c13;
+                overflow: hidden;
+            }
+            .icon-frame .stripe {
+                position: absolute;
+                left: -10%;
+                right: -10%;
+                height: 26%;
+                top: 37%;
+                background: #009de0;
+                transform: rotate(-12deg);
+            }
+            .icons-row {
+                display: flex;
+                align-items: flex-end;
+                gap: 40px;
+                justify-content: center;
+                margin-bottom: 48px;
+            }
+            .icon-caption {
+                text-align: center;
+                font-family: "Space Mono", monospace;
+                font-size: 12px;
+                color: #6e655f;
+                margin-top: 8px;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="instructions">
+            <h1>Comment exporter les images</h1>
+            <ol>
+                <li>
+                    Ouvre ce fichier dans
+                    <strong>Chrome, Edge ou Firefox</strong> (double-clic dessus
+                    suffit).
+                </li>
+                <li>
+                    Clic droit sur le cadre à exporter (bordure bleue en
+                    pointillés) → <strong>Inspecter</strong>.
+                </li>
+                <li>
+                    Dans l'inspecteur, l'élément survolé doit être sélectionné
+                    (surligné). Vérifie que c'est bien le
+                    <code>&lt;div id="og-frame"&gt;</code> (ou
+                    <code>id="icon-180"</code> / <code>id="icon-512"</code>) qui
+                    est sélectionné, pas un enfant.
+                </li>
+                <li>
+                    <strong>Chrome/Edge</strong> : ouvre la palette de commandes
+                    avec <code>Ctrl/Cmd+Shift+P</code>, tape
+                    <code>Capture node screenshot</code> et valide.
+                    <strong>Firefox</strong> : clic droit sur l'élément dans
+                    l'inspecteur → <code>Screenshot Node</code>.
+                </li>
+                <li>
+                    Le fichier PNG téléchargé est exactement aux bonnes
+                    dimensions (pas de marge, pas de barre de défilement).
+                </li>
+                <li>
+                    Renomme et place les fichiers dans
+                    <code>frontend/public/</code> :
+                    <code>og-image.png</code> (1200×630),
+                    <code>apple-touch-icon.png</code> (180×180),
+                    <code>icon-512.png</code> (512×512).
+                </li>
+            </ol>
+        </div>
+
+        <p class="section-label">
+            Image de partage (og-image.png — 1200 × 630)
+        </p>
+        <div class="frame-wrapper">
+            <div id="og-frame">
+                <div class="shape-blue"></div>
+                <div class="shape-brown"></div>
+                <div class="og-inner">
+                    <p class="kicker">Celcat &rarr; ICS</p>
+                    <h1>
+                        Ton emploi<br />du temps,<br /><em>enfin lisible.</em>
+                    </h1>
+                    <p class="og-sub">
+                        Génère un lien de calendrier à partir de ton Celcat.
+                        Compatible Google Calendar, Apple Calendar, Outlook.
+                    </p>
+                    <p class="og-footnote">
+                        Projet étudiant &middot; Non officiel
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <p class="section-label">
+            Icônes (apple-touch-icon.png — 180×180 / icon-512.png — 512×512)
+        </p>
+        <div class="icons-row">
+            <div>
+                <div class="frame-wrapper" style="margin-bottom: 0">
+                    <div
+                        id="icon-180"
+                        class="icon-frame"
+                        style="width: 180px; height: 180px"
+                    >
+                        <div class="stripe"></div>
+                    </div>
+                </div>
+                <p class="icon-caption">180 × 180</p>
+            </div>
+            <div>
+                <div class="frame-wrapper" style="margin-bottom: 0">
+                    <div
+                        id="icon-512"
+                        class="icon-frame"
+                        style="
+                            width: 200px;
+                            height: 200px;
+                            transform-origin: top left;
+                        "
+                    >
+                        <div class="stripe"></div>
+                    </div>
+                </div>
+                <p class="icon-caption">
+                    affiché réduit — capture quand même en 512×512 réel, voir
+                    note ci-dessous
+                </p>
+            </div>
+        </div>
+
+        <div class="instructions" style="max-width: 900px">
+            <h1>Note pour l'icône 512×512</h1>
+            <p>
+                L'aperçu ci-dessus est affiché en 200×200 pour tenir sur
+                l'écran, mais l'élément
+                <code>#icon-512</code> ne fait pas 512×512 dans le DOM. Pour
+                l'exporter à la bonne taille sans scroller, ouvre la console du
+                navigateur (<code>F12</code> → onglet <em>Console</em>) et colle
+                :
+            </p>
+            <code
+                style="
+                    display: block;
+                    padding: 10px;
+                    margin-top: 8px;
+                    white-space: pre;
+                "
+                >document.getElementById('icon-512').style.width='512px';
+                document.getElementById('icon-512').style.height='512px';</code
+            >
+            <p style="margin-top: 12px">
+                Puis refais la manipulation « Capture node screenshot » / «
+                Screenshot Node » sur cet élément. Le résultat sera un PNG
+                512×512 exact.
+            </p>
+        </div>
+    </body>
+</html>
