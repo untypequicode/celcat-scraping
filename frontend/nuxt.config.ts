@@ -57,6 +57,11 @@ export default defineNuxtConfig({
           })();`,
           tagPosition: "head",
         },
+        {
+          src: "https://umami.untypequicode.fr/script.js",
+          "data-website-id": "b96b6a81-accb-4963-bd39-0f3de56a27e2",
+          defer: true,
+        },
       ],
     },
   },
