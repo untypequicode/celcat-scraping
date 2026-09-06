@@ -8,8 +8,8 @@ services:
       - "8000:8000"
     labels:
       - traefik.enable=true
-      - traefik.http.routers.backend.rule=Host(`${BACKEND_DOMAIN}`)
-      - traefik.http.services.backend.loadbalancer.server.port=8000
+      - traefik.http.routers.backend-celcat.rule=Host(`${BACKEND_DOMAIN}`)
+      - traefik.http.services.backend-celcat.loadbalancer.server.port=8000
 
   frontend:
     build: ./frontend
@@ -20,5 +20,5 @@ services:
       - "3000:3000"
     labels:
       - traefik.enable=true
-      - traefik.http.routers.frontend.rule=Host(`${FRONTEND_DOMAIN}`)
-      - traefik.http.services.frontend.loadbalancer.server.port=3000
+      - traefik.http.routers.frontend-celcat.rule=Host(`${FRONTEND_DOMAIN}`)
+      - traefik.http.services.frontend-celcat.loadbalancer.server.port=3000
