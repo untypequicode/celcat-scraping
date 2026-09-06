@@ -16,6 +16,7 @@ services:
     restart: always
     environment:
       - NUXT_PUBLIC_API_BASE_URL=https://${BACKEND_DOMAIN}
+      - NUXT_PUBLIC_SITE_URL=https://${FRONTEND_DOMAIN}
     ports:
       - "3000:3000"
     labels:
