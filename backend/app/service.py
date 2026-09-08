@@ -3,6 +3,7 @@
 import datetime as dt
 import hashlib
 import logging
+import json
 from dataclasses import dataclass
 from typing import List, Optional, Tuple
 
@@ -26,6 +27,7 @@ class ResolvedRequest:
     start: dt.date
     end: dt.date
     calendar_name: str
+    custom_colors: Optional[dict[str, str]]
 
 
 def resolve_request(
@@ -38,6 +40,7 @@ def resolve_request(
     base_url: Optional[str],
     cookie: Optional[str],
     calendar_name: Optional[str],
+    colors: Optional[str],
     settings: Settings,
 ) -> ResolvedRequest:
     """Applique les valeurs par défaut et valide les paramètres d'une requête.
@@ -76,6 +79,13 @@ def resolve_request(
     if resolved_end < resolved_start:
         raise ValueError("Le paramètre 'end' doit être postérieur ou égal à 'start'.")
 
+    parsed_colors = None
+    if colors:
+        try:
+            parsed_colors = json.loads(colors)
+        except ValueError:
+            raise ValueError("Le paramètre 'colors' doit être un JSON valide.")
+
     return ResolvedRequest(
         base_url=(base_url or settings.celcat_base_url).rstrip("/"),
         resource_type=resolved_resource_type,
@@ -84,15 +94,19 @@ def resolve_request(
         start=resolved_start,
         end=resolved_end,
         calendar_name=calendar_name or resolved_resource_id,
+        custom_colors=parsed_colors,
     )
 
 
 def _cache_key(
-    base_url: str, resource_type: str, resource_id: str, start: dt.date, end: dt.date, cookie: str
+    base_url: str, resource_type: str, resource_id: str, start: dt.date, end: dt.date, cookie: str, custom_colors: Optional[dict[str, str]]
 ) -> str:
     cookie_hash = hashlib.sha256(cookie.encode("utf-8")).hexdigest()[:16]
-    return f"{base_url}|{resource_type}|{resource_id}|{start.isoformat()}|{end.isoformat()}|{cookie_hash}"
+    color_hash = ""
+    if custom_colors is not None:
+        color_hash = hashlib.md5(json.dumps(custom_colors, sort_keys=True).encode("utf-8")).hexdigest()[:8]
 
+    return f"{base_url}|{resource_type}|{resource_id}|{start.isoformat()}|{end.isoformat()}|{cookie_hash}|{color_hash}"
 
 def generate_calendar_ics(
     *,
@@ -104,10 +118,11 @@ def generate_calendar_ics(
     cookie: str,
     calendar_name: str,
     settings: Settings,
+    custom_colors: Optional[dict[str, str]] = None,
     use_cache: bool = True,
 ) -> Tuple[bytes, List[str]]:
     """Récupère les événements Celcat et renvoie (contenu_ics, lignes_de_log)."""
-    cache_key = _cache_key(base_url, resource_type, resource_id, start, end, cookie)
+    cache_key = _cache_key(base_url, resource_type, resource_id, start, end, cookie, custom_colors)
 
     if use_cache and settings.cache_ttl_seconds > 0:
         cached = ics_cache.get(cache_key)
@@ -133,7 +148,7 @@ def generate_calendar_ics(
         len(events), resource_type, resource_id,
     )
 
-    cal, build_log = build_ics(events, calendar_name=calendar_name)
+    cal, build_log = build_ics(events, calendar_name=calendar_name, custom_colors=custom_colors)
     ics_bytes = cal.to_ical()
     log_lines = fetch_log + build_log
 

@@ -4,6 +4,8 @@ services:
     restart: always
     env_file:
       - ./backend/.env
+    ports:
+      - 8000:8000
     labels:
       - traefik.enable=true
       - traefik.http.routers.backend-celcat.rule=Host(`${BACKEND_DOMAIN}`)

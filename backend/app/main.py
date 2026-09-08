@@ -115,6 +115,10 @@ def get_calendar(
         default=False,
         description="Si vrai, ignore le cache et force une nouvelle récupération depuis Celcat.",
     ),
+    colors: Optional[str] = Query(
+        default=None,
+        description="Mapping JSON optionnel pour les couleurs (ex: {'Cours': '#FF0000'})",
+    ),
     settings: Settings = Depends(get_settings),
 ) -> Response:
     try:
@@ -127,6 +131,7 @@ def get_calendar(
             base_url=base_url,
             cookie=cookie,
             calendar_name=calendar_name,
+            colors=colors,
             settings=settings,
         )
     except CelcatAuthError as exc:
@@ -145,6 +150,7 @@ def get_calendar(
             calendar_name=req.calendar_name,
             settings=settings,
             use_cache=not no_cache,
+            custom_colors=req.custom_colors,
         )
     except CelcatAuthError as exc:
         raise HTTPException(status_code=401, detail=str(exc)) from exc

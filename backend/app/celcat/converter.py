@@ -98,21 +98,16 @@ def event_key(ev: Dict[str, Any]) -> str:
     return hashlib.sha1(raw.encode("utf-8", errors="ignore")).hexdigest()
 
 
-def event_from_json(ev: Dict[str, Any]) -> Tuple[Optional[Event], Optional[str]]:
-    """
-    Construit un événement icalendar.Event à partir d'un dict JSON Celcat.
-
-    Retourne (event, None) en cas de succès, ou (None, raison) si l'événement
-    est ignoré — la raison est destinée au log.
-    """
+def event_from_json(ev: dict[str, Any], custom_colors: Optional[dict[str, str]] = None) -> Tuple[Optional[Event], Optional[str]]:
     start_raw = ev.get("start")
     end_raw = ev.get("end")
-    if not start_raw or not end_raw:
-        return None, f"start/end manquant (start={start_raw!r}, end={end_raw!r})"
+
+    if not start_raw:
+        return None, f"start manquant (start={start_raw!r}, end={end_raw!r})"
 
     try:
         start = _parse_dt(start_raw)
-        end = _parse_dt(end_raw)
+        end = _parse_dt(end_raw) if end_raw else None
     except ValueError as exc:
         return None, f"date illisible (start={start_raw!r}, end={end_raw!r}): {exc}"
 
@@ -128,8 +123,6 @@ def event_from_json(ev: Dict[str, Any]) -> Tuple[Optional[Event], Optional[str]]
     weeks = parsed.get("weeks") or ""
     notes = parsed.get("notes") or []
 
-    # Salle : on préfère un champ JSON dédié plus propre s'il existe,
-    # sinon on retombe sur la salle extraite du bloc pseudo-HTML.
     location = (
         _join_list(_first_present(ev, "sites", "rooms", "room")) or room_from_blob
     )
@@ -152,10 +145,23 @@ def event_from_json(ev: Dict[str, Any]) -> Tuple[Optional[Event], Optional[str]]
 
     cal_event = Event()
     cal_event.add("summary", title)
-    cal_event.add("dtstart", start)
-    cal_event.add("dtend", end)
+
+    if end:
+        cal_event.add("dtstart", start)
+        cal_event.add("dtend", end)
+    else:
+        cal_event.add("dtstart", start.date())
+        cal_event.add("dtend", start.date() + dt.timedelta(days=1))
+
     cal_event.add("dtstamp", dt.datetime.now(dt.timezone.utc))
     cal_event.add("uid", f"{event_key(ev)}@celcat-to-ics")
+
+    if custom_colors is not None:
+        color = custom_colors.get(category)
+        if color:
+            cal_event.add("color", color)
+            cal_event.add("x-apple-calendar-color", color)
+
     if location:
         cal_event.add("location", location)
     if description_lines:
@@ -165,7 +171,7 @@ def event_from_json(ev: Dict[str, Any]) -> Tuple[Optional[Event], Optional[str]]
 
 
 def build_ics(
-    events: List[Dict[str, Any]], calendar_name: str
+    events: List[Dict[str, Any]], calendar_name: str, custom_colors: Optional[Dict[str, str]] = None
 ) -> Tuple[Calendar, List[str]]:
     """Convertit une liste d'événements JSON Celcat en calendrier ICS.
 
@@ -181,7 +187,7 @@ def build_ics(
     log_lines: List[str] = []
     skipped = 0
     for ev in events:
-        cal_event, reason = event_from_json(ev)
+        cal_event, reason = event_from_json(ev, custom_colors=custom_colors)
         if cal_event is None:
             skipped += 1
             log_lines.append(

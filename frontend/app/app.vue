@@ -17,6 +17,8 @@ const {
     copied,
     generate,
     copyLink,
+    useCustomColors,
+    customColors,
 } = useCalendarForm();
 
 useSiteSeo();
@@ -45,6 +47,11 @@ useSiteSeo();
                     <FormAdvancedOptions
                         v-model:calendar-name="calendarName"
                         v-model:cookie="cookie"
+                    />
+
+                    <FormColorOptions
+                        v-model:enabled="useCustomColors"
+                        v-model:colors="customColors"
                     />
 
                     <div class="space-y-4">

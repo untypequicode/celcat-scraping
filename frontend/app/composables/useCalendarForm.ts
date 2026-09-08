@@ -1,4 +1,5 @@
 import type { ResourceType } from "~/composables/useCelcatUrlParser";
+import { DEFAULT_COLORS } from "~/utils/defaultColors";
 
 export type SourceMode = "url" | "manual";
 
@@ -111,6 +112,9 @@ export function useCalendarForm() {
   const generatedUrl = ref("");
   const copied = ref(false);
 
+  const useCustomColors = ref(false);
+  const customColors = ref(JSON.parse(JSON.stringify(DEFAULT_COLORS)));
+
   function generate() {
     attempted.value = true;
     copied.value = false;
@@ -129,6 +133,14 @@ export function useCalendarForm() {
     if (calendarName.value.trim())
       params.set("calendar_name", calendarName.value.trim());
     if (cookie.value.trim()) params.set("cookie", cookie.value.trim());
+    if (useCustomColors.value) {
+        const colorMap: Record<string, string> = {};
+        for (const item of customColors.value) {
+          const typeStr = item.type.trim();
+          if (typeStr) colorMap[typeStr] = item.color;
+        }
+        params.set("colors", JSON.stringify(colorMap));
+      }
 
     generatedUrl.value = `${apiBaseUrl.value}/calendar.ics?${params.toString()}`;
   }
@@ -165,5 +177,7 @@ export function useCalendarForm() {
     copied,
     generate,
     copyLink,
+    useCustomColors,
+    customColors,
   };
 }
