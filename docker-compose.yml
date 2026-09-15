@@ -1,4 +1,14 @@
 services:
+  backend-python:
+    build: ./backend-python
+    restart: always
+    env_file:
+      - ./backend/.env
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.backend-python-celcat.rule=Host(`python-${BACKEND_DOMAIN}`)
+      - traefik.http.services.backend-python-celcat.loadbalancer.server.port=8000
+
   backend:
     build: ./backend
     restart: always
@@ -8,16 +18,6 @@ services:
       - traefik.enable=true
       - traefik.http.routers.backend-celcat.rule=Host(`${BACKEND_DOMAIN}`)
       - traefik.http.services.backend-celcat.loadbalancer.server.port=8000
-
-  backend-rust:
-    build: ./backend-rust
-    restart: always
-    env_file:
-      - ./backend/.env
-    labels:
-      - traefik.enable=true
-      - traefik.http.routers.backend-rust-celcat.rule=Host(`rust-${BACKEND_DOMAIN}`)
-      - traefik.http.services.backend-rust-celcat.loadbalancer.server.port=8000
 
   frontend:
     build: ./frontend

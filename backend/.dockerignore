@@ -1,11 +1,3 @@
-__pycache__
-*.pyc
-*.pyo
+target/
+.git/
 .env
-.venv
-venv
-.git
-.gitignore
-.pytest_cache
-*.ics
-*.log
